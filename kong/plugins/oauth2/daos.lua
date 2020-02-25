@@ -1,5 +1,6 @@
 local url = require "socket.url"
 local typedefs = require "kong.db.schema.typedefs"
+local secret = require "kong.plugins.oauth2.secret"
 
 
 local function validate_uri(uri)
@@ -28,6 +29,7 @@ local oauth2_credentials = {
     { name = { type = "string", required = true }, },
     { client_id = { type = "string", required = false, unique = true, auto = true }, },
     { client_secret = { type = "string", required = false, auto = true }, },
+    { hash_secret = { type = "boolean", required = true, default = false }, },
     { redirect_uris = {
       type = "array",
       required = false,
@@ -36,6 +38,20 @@ local oauth2_credentials = {
         custom_validator = validate_uri,
     }, }, },
     { tags = typedefs.tags },
+  },
+  transformations = {
+    {
+      input = { "hash_secret" },
+      needs = { "client_secret" },
+      on_write = function(hash_secret, client_secret)
+        if not hash_secret then
+          return {}
+        end
+        return {
+          client_secret = secret.hash(client_secret),
+        }
+      end,
+    },
   },
 }
 
